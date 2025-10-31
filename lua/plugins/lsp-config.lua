@@ -41,9 +41,14 @@ return {
     config = function()
       local lspconfig = require("lspconfig")
       local keymap = vim.keymap
+      local capabilities = require("blink.cmp").get_lsp_capabilities()
 
-      lspconfig.lua_ls.setup({})
-      lspconfig.ts_ls.setup({})
+      lspconfig.lua_ls.setup({
+        capabilities = capabilities,
+      })
+      lspconfig.ts_ls.setup({
+        capabilities = capabilities,
+      })
 
       --keymaps
       keymap.set("n", "<leader>dk", vim.lsp.buf.hover, { desc = "Code Hover Documentation" })
