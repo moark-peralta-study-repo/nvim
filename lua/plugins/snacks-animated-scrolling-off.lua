@@ -4,5 +4,7 @@ return {
 		scroll = {
 			enabled = false, -- Disable scrolling animations
 		},
+
+    explorer = {enabled = false},
 	},
 }

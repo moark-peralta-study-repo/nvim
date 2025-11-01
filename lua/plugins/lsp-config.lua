@@ -1,93 +1,57 @@
+-- ~/.config/nvim/lua/plugins/lsp-config.lua
 return {
   {
-    "mason-org/mason.nvim",
-    config = function()
-      require("mason").setup()
-    end,
-  },
-
-  {
-    "mason-org/mason-lspconfig.nvim",
-    config = function()
-      require("mason-lspconfig").setup({
-        ensure_installed = {
-          "lua_ls",
-          "ts_ls",
-        },
-      })
-    end,
-  },
-  {
-    "jay-babu/mason-nvim-dap.nvim",
-    config = function()
-      local test
-      require("mason-nvim-dap").setup({
-        ensure_installed = { "java-test", "java-debug-adapter" },
-        automatic_installation = true,
-      })
-    end,
-  },
-
-  {
-    "mfussenegger/nvim-jdtls",
-    dependencies = {
-      "mfussenegger/nvim-dap",
-    },
-  },
-
-  {
     "neovim/nvim-lspconfig",
-    config = function()
-      local lspconfig = vim.lsp.config
-      local keymap = vim.keymap
+    opts = function(_, opts)
+      -- === Lua LSP ===
       local capabilities = require("blink.cmp").get_lsp_capabilities()
-
-      local function on_attach(client, bufnr)
-        if client.server_capabilities.codeLensProvider then
-          vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave", "CursorHold", "BufWritePost" }, {
-            buffer = bufnr,
-            callback = function()
-              vim.lsp.codelens.refresh()
-            end,
-          })
-        end
-      end
-
-      lspconfig("lua_ls", {
-        capabilities = capabilities,
-        on_attach = on_attach,
-        settings = {
-          Lua = {
-            codelens = {
-              enable = true,
-            },
+      local tsserver = opts.servers.tsserver
+      local lua_ls = opts.servers.lua_ls
+      lua_ls = lua_ls or {}
+      lua_ls.settings = vim.tbl_deep_extend("force", lua_ls.settings or {}, {
+        Lua = {
+          workspace = {
+            checkThirdParty = false,
+          },
+          codeLens = {
+            enable = true,
+          },
+          completion = {
+            callSnippet = "Replace",
+          },
+          hint = {
+            enable = true,
           },
         },
       })
 
-      -- lspconfig("ts_ls", {
-      --   capabilities = capabilities,
-      --   on_attach = on_attach,
-      -- })
+      -- Enable codelens for Lua
+      lua_ls.codelens = { enabled = true }
+      lua_ls.capabilities = capabilities
 
-      --keymaps
-      keymap.set("n", "<leader>dk", vim.lsp.buf.hover, { desc = "Code Hover Documentation" })
+      -- === TypeScript LSP ===
+      tsserver = tsserver or {}
+      tsserver.capabilities = capabilities
 
-      keymap.set("n", "<leader>dd", vim.lsp.buf.hover, { desc = "Code Goto Definition" })
+      tsserver.init_options = {
+        hostInfo = "neovim",
+        preferences = {
+          includeInlayParameterNameHints = "all",
+          includeInlayFunctionParameterTypeHints = true,
+          includeInlayVariableTypeHints = true,
+        },
+      }
+      tsserver.settings = vim.tbl_deep_extend("force", tsserver.settings or {}, {
+        completions = { completeFunctionCalls = true },
+      })
+      tsserver.root_dir = require("lspconfig.util").root_pattern("package.json", ".git")
 
-      keymap.set("n", "<leader>dr", require("telescope.builtin").lsp_references, { desc = "Code Goto References" })
-
-      keymap.set({ "n", "v" }, "<leader>da", vim.lsp.buf.hover, { desc = "Code Actions" })
-
-      keymap.set(
-        "n",
-        "<leader>di",
-        require("telescope.builtin").lsp_implementations,
-        { desc = "Code Goto Implentations" }
-      )
-
-      keymap.set("n", "<leader>dR", vim.lsp.buf.rename, { desc = "Code Rename" })
-      vim.keymap.set("n", "<leader>dD", vim.lsp.buf.declaration, { desc = "Code Goto Declaration" })
+      -- Optional: custom setup without breaking LazyVim defaults
+      tsserver = function(_, server_opts)
+        -- Example: integrate typescript.nvim
+        -- require("typescript").setup({ server = server_opts })
+        return false -- keep LazyVim default setup (codelens, inlay hints, etc.)
+      end
     end,
   },
 }
