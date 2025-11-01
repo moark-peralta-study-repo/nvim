@@ -1,4 +1,7 @@
 vim.g.mapleader = " "
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+vim.g.lazyvim_no_autostart_neo_tree = true
 vim.scriptencoding = "utf-8"
 vim.opt.encoding = "utf-8"
 vim.opt.fileencoding = "utf-8"

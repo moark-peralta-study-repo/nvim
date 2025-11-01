@@ -13,15 +13,14 @@ return {
         ensure_installed = {
           "lua_ls",
           "ts_ls",
-          -- "jdtls",
         },
       })
     end,
   },
-
   {
     "jay-babu/mason-nvim-dap.nvim",
     config = function()
+      local test
       require("mason-nvim-dap").setup({
         ensure_installed = { "java-test", "java-debug-adapter" },
         automatic_installation = true,
@@ -39,16 +38,37 @@ return {
   {
     "neovim/nvim-lspconfig",
     config = function()
-      local lspconfig = require("lspconfig")
+      local lspconfig = vim.lsp.config
       local keymap = vim.keymap
       local capabilities = require("blink.cmp").get_lsp_capabilities()
 
-      lspconfig.lua_ls.setup({
+      local function on_attach(client, bufnr)
+        if client.server_capabilities.codeLensProvider then
+          vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave", "CursorHold", "BufWritePost" }, {
+            buffer = bufnr,
+            callback = function()
+              vim.lsp.codelens.refresh()
+            end,
+          })
+        end
+      end
+
+      lspconfig("lua_ls", {
         capabilities = capabilities,
+        on_attach = on_attach,
+        settings = {
+          Lua = {
+            codelens = {
+              enable = true,
+            },
+          },
+        },
       })
-      lspconfig.ts_ls.setup({
-        capabilities = capabilities,
-      })
+
+      -- lspconfig("ts_ls", {
+      --   capabilities = capabilities,
+      --   on_attach = on_attach,
+      -- })
 
       --keymaps
       keymap.set("n", "<leader>dk", vim.lsp.buf.hover, { desc = "Code Hover Documentation" })

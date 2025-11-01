@@ -1,15 +1,15 @@
 local function get_jdtls()
   local mason_path = vim.fn.stdpath("data") .. "/mason"
   local jdtls_path = mason_path .. "/packages/jdtls"
+  -- local jdtls_path = "/home/moe/Downloads/jdt-language-server-1.51.0-202509042040"
   local launchers = vim.fn.glob(jdtls_path .. "/plugins/org.eclipse.equinox.launcher_*.jar", true, true)
 
-  local launcher
-  for _, path in ipairs(launchers) do
-    if not path:match("gtk") and not path:match("cocoa") and not path:match("win32") then
-      launcher = path
-      break
-    end
+  if #launchers == 0 then
+    error("JDTLS launcher jar not found in " .. jdtls_path .. "/plugins/")
   end
+
+  -- pick the first launcher
+  local launcher = launchers[1]
 
   local SYSTEM = "linux"
   local config = jdtls_path .. "/config_" .. SYSTEM
@@ -123,14 +123,18 @@ local function setup_jdtls()
     workspace = {
       configuration = true,
     },
-    {
-      textDocument = {
-        completion = {
-          snippetSupport = false,
-        },
+    textDocument = {
+      completion = {
+        snippetSupport = false,
       },
     },
   }
+
+  local lsp_capabilities = require("blink.cmp").get_lsp_capabilities()
+  for k, v in pairs(lsp_capabilities) do
+    capabilities[k] = v
+  end
+
   local extendedClientCapabilities = jdtls.extendedClientCapabilities
   extendedClientCapabilities.resolveAdditionalTextEditsSupport = true
   --
@@ -155,6 +159,7 @@ local function setup_jdtls()
     "-data",
     workspace_dir,
   }
+  vim.print(cmd)
 
   local settings = {
     java = {
@@ -203,18 +208,21 @@ local function setup_jdtls()
 
   local on_attach = function(_, bufnr)
     java_keymaps()
-
     require("jdtls.dap").setup_dap()
     require("jdtls.dap").setup_dap_main_class_configs()
-    require("jdtls_setup").add_commands()
 
-    vim.lsp.codelens.refresh()
-    vim.api.nvim_create_autocmd("BufWritePost", {
-
-      pattern = { "*.java" },
+    -- Auto refresh CodeLens while typing and on leave
+    vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "InsertLeave" }, {
+      buffer = bufnr,
       callback = function()
-        local _, _ = pcall(vim.lsp.codelens.refresh)
-        vim.lsp.buf.clear_references()
+        pcall(vim.lsp.codelens.refresh)
+      end,
+    })
+
+    -- Incremental compile only on save
+    vim.api.nvim_create_autocmd("BufWritePost", {
+      buffer = bufnr,
+      callback = function()
         pcall(require("jdtls").compile, "incremental")
       end,
     })
@@ -224,11 +232,19 @@ local function setup_jdtls()
     cmd = cmd,
     root_dir = root_dir,
     settings = settings,
+    capabilities = capabilities,
     init_options = init_options,
     on_attach = on_attach,
   }
 
   require("jdtls").start_or_attach(config)
+
+  vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "InsertLeave" }, {
+    pattern = "*.java",
+    callback = function()
+      pcall(vim.lsp.codelens.refresh)
+    end,
+  })
 end
 
 return {
