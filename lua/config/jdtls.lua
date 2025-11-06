@@ -216,7 +216,7 @@ local function setup_jdtls()
 
   local on_attach = function(_, bufnr)
     java_keymaps()
-    require("jdtls.dap").setup_dap()
+    require("jdtls.dap").setup_dap({ hotcodereplace = "auto" })
     require("jdtls.dap").setup_dap_main_class_configs()
 
     -- Auto refresh CodeLens while typing and on leave
