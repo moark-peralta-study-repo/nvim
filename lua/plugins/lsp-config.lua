@@ -5,6 +5,27 @@ return {
       local capabilities = require("blink.cmp").get_lsp_capabilities()
       local util = require("lspconfig.util")
 
+      -- === on_attach: set LSP keymaps per buffer ===
+      local on_attach = function(client, bufnr)
+        local opts = { buffer = bufnr, noremap = true, silent = true }
+
+        -- LSP actions
+        vim.keymap.set("n", "<leader>cd", vim.lsp.buf.definition, { desc = "Go to Definition", buffer = bufnr })
+        vim.keymap.set("n", "<leader>cr", vim.lsp.buf.references, { desc = "References", buffer = bufnr })
+        vim.keymap.set("n", "<leader>ch", vim.lsp.buf.hover, { desc = "Hover Info", buffer = bufnr })
+        vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, { desc = "Rename", buffer = bufnr })
+        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action", buffer = bufnr })
+
+        -- Diagnostics
+        vim.keymap.set("n", "[d", function()
+          vim.diagnostic.jump({ count = -1 })
+        end, { desc = "Previous Diagnostic", buffer = bufnr })
+        vim.keymap.set("n", "]d", function()
+          vim.diagnostic.jump({ count = 1 })
+        end, { desc = "Next Diagnostic", buffer = bufnr })
+        vim.keymap.set("n", "<leader>dl", vim.diagnostic.setloclist, { desc = "Diagnostics List", buffer = bufnr })
+      end
+
       -- === CSS LSP ===
       opts.servers.cssls = vim.tbl_deep_extend("force", opts.servers.cssls or {}, {
         capabilities = capabilities,
@@ -13,6 +34,7 @@ return {
           scss = { validate = true },
           less = { validate = true },
         },
+        on_attach = on_attach,
       })
 
       -- === Lua LSP ===
@@ -27,6 +49,7 @@ return {
           },
         },
         codelens = { enabled = true },
+        on_attach = on_attach,
       })
 
       -- === TypeScript LSP ===
@@ -44,10 +67,13 @@ return {
           completions = { completeFunctionCalls = true },
         },
         root_dir = util.root_pattern("package.json", ".git"),
+        on_attach = on_attach,
       })
 
+      opts.servers.tsserver = nil
+
+      -- Disable default tsserver setup if you plan to use a separate TypeScript plugin
       opts.setup.tsserver = function(_, server_opts)
-        -- require("typescript").setup({ server = server_opts })
         return false
       end
 
@@ -67,7 +93,6 @@ return {
             validate = true,
             experimental = {
               classRegex = {
-                -- Useful if you use clsx, cva, or custom utils
                 "clsx\\(([^)]*)\\)",
                 "cva\\(([^)]*)\\)",
                 "tw`([^`]*)`",
@@ -75,16 +100,28 @@ return {
             },
           },
         },
+        on_attach = on_attach,
       })
 
       vim.g.get_lsp_capabilities = capabilities
     end,
+
+    init = function()
+      vim.lsp.handlers["$/progress"] = function() end
+    end,
+  },
+
+  {
+    "mason-org/mason-lspconfig.nvim",
+    opts = {
+      automatic_installation = true,
+      handlers = {
+        jdtls = function() end,
+      },
+    },
   },
 
   {
     "mfussenegger/nvim-jdtls",
-    dependencies = {
-      "mfussenegger/nvim-dap",
-    },
   },
 }

@@ -101,6 +101,14 @@ local function java_keymaps()
 end
 
 local function setup_jdtls()
+  -- Stop old client if one exists for this buffer
+  local active_clients = vim.lsp.get_active_clients({ name = "jdtls" })
+  for _, client in ipairs(active_clients) do
+    if client.config.root_dir == vim.fn.getcwd() then
+      return -- already attached for this project
+    end
+  end
+
   local jdtls = require("jdtls")
 
   local launcher, os_config, lombok = get_jdtls()
