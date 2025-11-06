@@ -15,6 +15,14 @@ return {
         vim.keymap.set("n", "<leader>ch", vim.lsp.buf.hover, { desc = "Hover Info", buffer = bufnr })
         vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, { desc = "Rename", buffer = bufnr })
         vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action", buffer = bufnr })
+        vim.keymap.set("n", "<leader>cR", vim.lsp.buf.rename, { desc = "Code Rename", buffer = bufnr })
+        vim.keymap.set("n", "<leader>cD", vim.lsp.buf.declaration, { desc = "Code Goto Declaration", buffer = bufnr })
+        vim.keymap.set(
+          "n",
+          "<leader>ci",
+          require("telescope.builtin").lsp_implementations,
+          { desc = "Code Implementation", buffer = bufnr }
+        )
 
         -- Diagnostics
         vim.keymap.set("n", "[d", function()
