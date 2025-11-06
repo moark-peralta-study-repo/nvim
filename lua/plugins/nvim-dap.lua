@@ -16,6 +16,16 @@ return {
       dapui.open()
     end
 
+    dap.configurations.java = {
+      {
+        type = "java",
+        request = "launch",
+        name = "Launch Java Program",
+        mainClass = "${file}",
+        projectName = "MyProject",
+      },
+    }
+
     --Keymaps
     keymap.set("n", "<leader>dt", dap.toggle_breakpoint, { desc = "Debug Toggle Breakpoint" })
     keymap.set("n", "<leader>ds", dap.continue, { desc = "Debug Start" })
