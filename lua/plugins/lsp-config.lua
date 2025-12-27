@@ -45,6 +45,31 @@ return {
         on_attach = on_attach,
       })
 
+      opts.servers.emmet_ls = {
+        capabilities = capabilities,
+        filetypes = {
+          "html",
+          "css",
+          "scss",
+          "javascript",
+          "javascriptreact",
+          "typeScript",
+          "typescriptreact",
+          "vue",
+          "svelte",
+        },
+
+        init_options = {
+          html = {
+            options = {
+              ["bem.enabled"] = true,
+            },
+          },
+        },
+
+        on_attach = on_attach,
+      }
+
       -- === Lua LSP ===
       opts.servers.lua_ls = vim.tbl_deep_extend("force", opts.servers.lua_ls or {}, {
         capabilities = capabilities,
@@ -67,8 +92,8 @@ return {
           hostInfo = "neovim",
           preferences = {
             includeInlayParameterNameHints = "all",
-            includeInlayFunctionParameterTypeHints = true,
             includeInlayVariableTypeHints = true,
+            includeInlayFunctionParameterTypeHints = true,
           },
         },
         settings = {
@@ -131,5 +156,27 @@ return {
 
   {
     "mfussenegger/nvim-jdtls",
+  },
+  {
+    "glepnir/lspsaga.nvim",
+    branch = "main",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    config = function()
+      require("lspsaga").setup({
+        code_action = {
+          num_shortcut = true,
+          keys = { quit = "q", exec = "<CR>" },
+        },
+        lightbulb = { enable = false },
+        hover = { max_width = 80 },
+      })
+
+      -- Keymaps like IntelliJ
+      vim.keymap.set("n", "<A-CR>", "<cmd>Lspsaga code_action<CR>", { silent = true, desc = "Code Action (Alt+Enter)" })
+      vim.keymap.set("v", "<A-CR>", "<cmd>Lspsaga range_code_action<CR>", { silent = true })
+      vim.keymap.set("n", "K", "<cmd>Lspsaga hover_doc<CR>", { silent = true, desc = "Hover Docs" })
+      vim.keymap.set("n", "gr", "<cmd>Lspsaga lsp_finder<CR>", { silent = true, desc = "References / Definitions" })
+      vim.keymap.set("n", "<leader>rn", "<cmd>Lspsaga rename<CR>", { silent = true, desc = "Rename Symbol" })
+    end,
   },
 }
