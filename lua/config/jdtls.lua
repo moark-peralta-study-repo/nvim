@@ -1,45 +1,49 @@
+local M = {}
+
+-- Get paths to JDTLS launcher, config, and lombok
 local function get_jdtls()
-  local mason_path = vim.fn.stdpath("data") .. "/mason"
-  local jdtls_path = mason_path .. "/packages/jdtls"
-  -- local jdtls_path = "/home/moe/Downloads/jdt-language-server-1.51.0-202509042040"
-  local launchers = vim.fn.glob(jdtls_path .. "/plugins/org.eclipse.equinox.launcher_*.jar", true, true)
+  local mason_path = vim.fn.stdpath("data") .. "/mason/packages/jdtls"
+  local launcher = vim.fn.glob(mason_path .. "/plugins/org.eclipse.equinox.launcher_*.jar", true, true)[1]
 
-  if #launchers == 0 then
-    error("JDTLS launcher jar not found in " .. jdtls_path .. "/plugins/")
-  end
+  local config = mason_path .. "/config_linux"
+  local lombok = mason_path .. "/lombok.jar"
 
-  -- pick the first launcher
-  local launcher = launchers[1]
-
-  local SYSTEM = "linux"
-  local config = jdtls_path .. "/config_" .. SYSTEM
-  local lombok = jdtls_path .. "/lombok.jar"
+  print("Launcher:", launcher)
+  print("Mason Path", mason_path)
+  print("Config:", config)
+  print("Lombok:", lombok)
 
   return launcher, config, lombok
 end
 
 local function get_bundles()
-  local mason_path = vim.fn.stdpath("data") .. "/mason"
+  local mason_path = vim.fn.stdpath("data") .. "/mason/packages"
+  local bundles = {}
 
-  local java_debug_path = mason_path .. "/packages/java-debug-adapter"
-  local bundles = {
-    vim.fn.glob(java_debug_path .. "/extension/server/com.microsoft.java.debug.plugin-*.jar", true),
-  }
+  local java_debug =
+    vim.fn.glob(mason_path .. "/java-debug-adapter/extension/server/com.microsoft.java.debug.plugin-*.jar", true, true)
 
-  local java_test_path = mason_path .. "/packages/java-test"
-  vim.list_extend(bundles, vim.split(vim.fn.glob(java_test_path .. "/extension/server/*.jar", true), "\n"))
+  local java_test = vim.fn.glob(mason_path .. "/java-test/extension/server/*.jar", true, true)
+
+  vim.list_extend(bundles, java_debug)
+  vim.list_extend(bundles, java_test)
 
   return bundles
 end
 
+-- Get workspace directory
 local function get_workspace()
   local home = os.getenv("HOME")
-  local workspace_path = home .. "/dev/java-workspace/"
   local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":p:h:t")
-  local workspace_dir = workspace_path .. project_name
-
+  if project_name == "" then
+    project_name = "jdtls-temp"
+  end
+  local workspace_dir = home .. "/.cache/jdtls-workspace/" .. project_name
+  vim.fn.mkdir(workspace_dir, "p")
   return workspace_dir
 end
+
+-- Java keymaps
 local function java_keymaps()
   vim.cmd(
     "command! -buffer -nargs=? -complete=custom,v:lua.require'jdtls'._complete_compile JdtCompile lua require('jdtls').compile(<f-args>)"
@@ -100,52 +104,39 @@ local function java_keymaps()
   vim.keymap.set("n", "<leader>Ju", "<Cmd>JdtUpdateConfig<CR>", { desc = "[J]ava [U]pdate Config" })
 end
 
-local function setup_jdtls()
-  -- Stop old client if one exists for this buffer
-  local active_clients = vim.lsp.get_active_clients({ name = "jdtls" })
-  for _, client in ipairs(active_clients) do
-    if client.config.root_dir == vim.fn.getcwd() then
-      return -- already attached for this project
-    end
-  end
-
+-- Main setup function
+function M.setup_jdtls()
   local jdtls = require("jdtls")
-
   local launcher, os_config, lombok = get_jdtls()
-
   local workspace_dir = get_workspace()
-
   local bundles = get_bundles()
 
-  local root_dir = jdtls.setup.find_root({
+  -- Determine root dir
+  -- local root_dir = jdtls.setup.find_root({ ".git", "mvnw", "gradlew", "pom.xml", "build.gradle", ".java-workspace" })
+  --
+  --
+  local root_dir = require("jdtls.setup").find_root({
     ".git",
     "mvnw",
     "gradlew",
-    "gradle",
     "pom.xml",
     "build.gradle",
     ".java-workspace",
   }) or vim.fn.getcwd()
 
-  local capabilities = {
-    workspace = {
-      configuration = true,
-    },
-    textDocument = {
-      completion = {
-        snippetSupport = false,
-      },
-    },
-  }
-
-  local lsp_capabilities = require("blink.cmp").get_lsp_capabilities()
-  for k, v in pairs(lsp_capabilities) do
-    capabilities[k] = v
+  local capabilities
+  local ok
+  if ok then
+    -- capabilities = cmp_nvim_lsp.default_capabilities()
+    capabilities = require("blink.cmp").get_lsp_capabilities()
+  else
+    capabilities = {}
   end
 
+  -- Extended client capabilities
   local extendedClientCapabilities = jdtls.extendedClientCapabilities
   extendedClientCapabilities.resolveAdditionalTextEditsSupport = true
-  --
+  -- JDTLS command
   local cmd = {
     "java",
     "-Declipse.application=org.eclipse.jdt.ls.core.id1",
@@ -167,11 +158,10 @@ local function setup_jdtls()
     "-data",
     workspace_dir,
   }
-  vim.print(cmd)
 
+  -- JDTLS settings
   local settings = {
     java = {
-      autobuild = { enabled = true },
       format = {
         enabled = true,
         settings = {
@@ -209,29 +199,25 @@ local function setup_jdtls()
     },
   }
 
-  local init_options = {
-    bundles = bundles,
-    extendedClientCapabilities = extendedClientCapabilities,
-  }
+  local init_options = { bundles = bundles, extendedClientCapabilities = extendedClientCapabilities }
 
   local on_attach = function(_, bufnr)
     java_keymaps()
+
+    require("dap")
+
     require("jdtls.dap").setup_dap({ hotcodereplace = "auto" })
     require("jdtls.dap").setup_dap_main_class_configs()
 
-    -- Auto refresh CodeLens while typing and on leave
-    vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "InsertLeave" }, {
-      buffer = bufnr,
-      callback = function()
-        pcall(vim.lsp.codelens.refresh)
-      end,
-    })
+    -- vim.lsp.codelens.refresh()
+    vim.lsp.codelens.enable(true, { bufnr = bufnr })
+    vim.lsp.codelens.refresh()
 
-    -- Incremental compile only on save
-    vim.api.nvim_create_autocmd("BufWritePost", {
+    vim.api.nvim_create_autocmd({ "BufWritePost", "CursorHold", "BufWritePost" }, {
+      -- pattern = { "*.java" },
       buffer = bufnr,
       callback = function()
-        pcall(require("jdtls").compile, "incremental")
+        vim.lsp.codelens.refresh({ bufnr = bufnr })
       end,
     })
   end
@@ -245,16 +231,7 @@ local function setup_jdtls()
     on_attach = on_attach,
   }
 
-  require("jdtls").start_or_attach(config)
-
-  vim.api.nvim_create_autocmd({ "BufEnter", "CursorHold", "InsertLeave" }, {
-    pattern = "*.java",
-    callback = function()
-      pcall(vim.lsp.codelens.refresh)
-    end,
-  })
+  jdtls.start_or_attach(config)
 end
 
-return {
-  setup_jdtls = setup_jdtls,
-}
+return M
